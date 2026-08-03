@@ -754,7 +754,7 @@ async function startDownload(){
     downloadCard.classList.add('show');
     saveRecent(parsed.owner, parsed.repo, 'https://github.com/' + parsed.owner + '/' + parsed.repo);
 
-    log('zip tayyor, pastdagi "Yuklash" tugmasini bosing', 'ok');
+    log('zip tayyor, yuqoridagi "Yuklash" tugmasini bosing', 'ok');
     shareBtn.classList.add('show');
   }catch(e){
     log('xato: ' + e.message, 'err');
