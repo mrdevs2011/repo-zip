@@ -556,7 +556,7 @@ function authHeaders(token){
 async function ghFetch(url, token){
   const res = await fetch(url, { headers: authHeaders(token) });
   if(res.status === 401) throw new Error("token noto'g'ri yoki muddati o'tgan");
-  if(res.status === 404) throw new Error("repo topilmadi (private bo'lsa token kerak)");
+  if(res.status === 404) throw new Error("repo topilmadi");
   if(res.status === 403){
     const remaining = res.headers.get('x-ratelimit-remaining');
     throw new Error('Hisobingizga kirmagansiz (Github Acces Token kriting');
