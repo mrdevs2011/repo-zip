@@ -559,7 +559,7 @@ async function ghFetch(url, token){
   if(res.status === 404) throw new Error("repo topilmadi");
   if(res.status === 403){
     const remaining = res.headers.get('x-ratelimit-remaining');
-    throw new Error('Hisobingizga kirmagansiz (Github Acces Token kriting');
+    throw new Error('Hisobingizga kirmagansiz Github Access Token kiriting';
   }
   if(!res.ok) throw new Error('http ' + res.status);
   return res.json();
