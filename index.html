@@ -362,9 +362,18 @@ const firebaseConfig = {
   appId: "1:1063584113151:web:83ad384da9b930b864c7ca",
   measurementId: "G-WNL24DQ3KL"
 };
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
+let auth = null;
+let db = null;
+try{
+  if(typeof firebase === 'undefined'){
+    throw new Error('Firebase SDK failed to load (network blocked or offline)');
+  }
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.firestore();
+}catch(e){
+  console.error('Firebase init failed, continuing without it:', e);
+}
 
 const logEl = document.getElementById('log');
 const barEl = document.getElementById('bar');
@@ -799,6 +808,7 @@ async function uploadForShare(){
   barFill.style.width = '0%';
 
   try{
+    if(!auth) throw new Error("ulashish xizmati mavjud emas (Firebase yuklanmadi)");
     if(!auth.currentUser) await auth.signInAnonymously();
 
     const chunks = await blobToBase64Chunks(lastZipBlob);
@@ -850,6 +860,7 @@ function copyShareUrl(){
 async function downloadSharedZip(docId){
   log('zip qidirilmoqda...');
   try{
+    if(!auth) throw new Error("ulashish xizmati mavjud emas (Firebase yuklanmadi)");
     if(!auth.currentUser) await auth.signInAnonymously();
 
     const docSnap = await db.collection('shared_zips').doc(docId).get();
