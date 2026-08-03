@@ -16,8 +16,19 @@
     --muted:#5c6472;
     --accent:#3fb950;
     --error:#f85149;
+    --input-bg:#0d1117;
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
+  :root.light{
+    --bg:#f6f8fa;
+    --border:#d0d7de;
+    --text:#24292f;
+    --muted:#6e7781;
+    --accent:#1a7f37;
+    --error:#cf222e;
+    --input-bg:#ffffff;
+  }
+  body{ transition: background .2s, color .2s; }
   *{box-sizing:border-box;}
   body{
     margin:0;
@@ -28,13 +39,31 @@
     padding:32px 16px;
   }
   .wrap{ max-width:520px; margin:0 auto; }
+  .title-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin:0 0 20px 0;
+  }
   h1{
     font-size:14px;
     font-weight:600;
     color:var(--muted);
-    margin:0 0 20px 0;
+    margin:0;
   }
   h1::before{ content:"$ "; color:var(--accent); }
+
+  #themeToggle{
+    width:30px; height:30px;
+    padding:0;
+    background:var(--input-bg);
+    border:1px solid var(--border);
+    border-radius:6px;
+    color:var(--muted);
+    font-size:14px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #themeToggle:hover{ color:var(--accent); border-color:var(--accent); }
 
   label{
     display:block;
@@ -46,7 +75,7 @@
 
   input[type=text], input[type=password]{
     width:100%;
-    background:#0d1117;
+    background:var(--input-bg);
     border:1px solid var(--border);
     border-radius:4px;
     color:var(--text);
@@ -59,7 +88,7 @@
   input::placeholder{ color:#3a4150; }
 
   select{
-    background:#0d1117;
+    background:var(--input-bg);
     border:1px solid var(--border);
     border-radius:4px;
     color:var(--muted);
@@ -69,6 +98,25 @@
     margin-top:6px;
     outline:none;
   }
+
+  #recentList{
+    display:none;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-top:8px;
+  }
+  #recentList.show{ display:flex; }
+  .chip{
+    background:var(--input-bg);
+    border:1px solid var(--border);
+    border-radius:100px;
+    color:var(--muted);
+    font-family:var(--mono);
+    font-size:11px;
+    padding:5px 10px;
+    cursor:pointer;
+  }
+  .chip:hover{ color:var(--accent); border-color:var(--accent); }
 
   .row{ display:flex; align-items:center; gap:8px; margin-top:8px; }
   .row input[type=checkbox]{ accent-color:var(--accent); }
@@ -81,6 +129,27 @@
     border:1px solid var(--border);
   }
   button:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  #previewBtn{
+    width:100%;
+    margin-top:14px;
+    padding:9px;
+    background:transparent;
+    color:var(--accent);
+    border-color:var(--accent);
+    font-size:12px;
+  }
+
+  #previewInfo{
+    display:none;
+    color:var(--muted);
+    font-size:11.5px;
+    margin-top:8px;
+    line-height:1.6;
+  }
+  #previewInfo.show{ display:block; }
+  #previewInfo .num{ color:var(--accent); }
+  #previewInfo .warn{ color:var(--error); }
 
   #goBtn{
     width:100%;
@@ -99,7 +168,7 @@
     gap:12px;
     margin-top:16px;
     padding:12px;
-    background:#0d1117;
+    background:var(--input-bg);
     border:1px solid var(--border);
     border-radius:10px;
   }
@@ -159,7 +228,7 @@
     padding:8px 9px;
   }
   #shareResult button{
-    background:#161b22;
+    background:var(--input-bg);
     color:var(--text);
     padding:0 12px;
     font-size:11px;
@@ -199,10 +268,14 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>repo-zip</h1>
+  <div class="title-row">
+    <h1>repo-zip</h1>
+    <button id="themeToggle" onclick="toggleTheme()">☾</button>
+  </div>
 
   <label>repo url</label>
   <input type="text" id="urlInput" placeholder="https://github.com/owner/repo" />
+  <div id="recentList"></div>
   <select id="branchInput"><option value="">auto branch</option></select>
 
   <label>token (private repo / rate limit uchun, ixtiyoriy)</label>
@@ -214,6 +287,9 @@
 
   <label>chiqarib tashlash (vergul bilan, ixtiyoriy)</label>
   <input type="text" id="excludeInput" value="node_modules, .git, dist, build, .next, __pycache__, vendor" />
+
+  <button id="previewBtn" onclick="previewRepo()">oldindan ko'rish</button>
+  <div id="previewInfo"></div>
 
   <button id="goBtn" onclick="startDownload()">yuklab olish</button>
 
@@ -238,6 +314,29 @@
 </div>
 
 <script>
+const THEME_STORAGE_KEY = 'repo_zip_theme';
+function applyTheme(theme){
+  const btn = document.getElementById('themeToggle');
+  if(theme === 'light'){
+    document.documentElement.classList.add('light');
+    if(btn) btn.textContent = '☀';
+  } else {
+    document.documentElement.classList.remove('light');
+    if(btn) btn.textContent = '☾';
+  }
+}
+function toggleTheme(){
+  const isLight = document.documentElement.classList.contains('light');
+  const next = isLight ? 'dark' : 'light';
+  applyTheme(next);
+  try{ localStorage.setItem(THEME_STORAGE_KEY, next); }catch(e){}
+}
+(function initTheme(){
+  let saved = 'dark';
+  try{ saved = localStorage.getItem(THEME_STORAGE_KEY) || 'dark'; }catch(e){}
+  applyTheme(saved);
+})();
+
 const firebaseConfig = {
   apiKey: "AIzaSyDagBXJ3r8DSXa7YdGCrMBYc4_J8U7GyNw",
   authDomain: "zipper-b1338.firebaseapp.com",
@@ -285,6 +384,44 @@ function persistTokenIfEnabled(){
 }
 saveTokenCheckbox.addEventListener('change', persistTokenIfEnabled);
 tokenInput.addEventListener('input', persistTokenIfEnabled);
+
+const RECENT_STORAGE_KEY = 'repo_zip_recent';
+const recentListEl = document.getElementById('recentList');
+
+function getRecent(){
+  try{
+    return JSON.parse(localStorage.getItem(RECENT_STORAGE_KEY) || '[]');
+  }catch(e){ return []; }
+}
+
+function saveRecent(owner, repo, url){
+  try{
+    let list = getRecent();
+    list = list.filter(item => item.url !== url);
+    list.unshift({ owner, repo, url });
+    list = list.slice(0, 6);
+    localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(list));
+    renderRecent();
+  }catch(e){}
+}
+
+function renderRecent(){
+  const list = getRecent();
+  recentListEl.innerHTML = '';
+  if(list.length === 0){ recentListEl.classList.remove('show'); return; }
+  list.forEach(item => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.textContent = item.owner + '/' + item.repo;
+    chip.onclick = () => {
+      document.getElementById('urlInput').value = item.url;
+      previewInfo.classList.remove('show');
+    };
+    recentListEl.appendChild(chip);
+  });
+  recentListEl.classList.add('show');
+}
+renderRecent();
 
 function log(msg, cls){
   logEl.classList.add('show');
@@ -341,6 +478,76 @@ function b64ToArrayBuffer(base64){
   return bytes.buffer;
 }
 
+function getExcludeParts(){
+  const excludeRaw = document.getElementById('excludeInput').value;
+  return excludeRaw.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function isExcluded(path, excludeParts){
+  const segments = path.split('/');
+  return excludeParts.some(pattern => segments.includes(pattern));
+}
+
+const previewBtn = document.getElementById('previewBtn');
+const previewInfo = document.getElementById('previewInfo');
+
+async function previewRepo(){
+  const raw = document.getElementById('urlInput').value;
+  const branchOverride = document.getElementById('branchInput').value;
+  const token = tokenInput.value.trim();
+  const parsed = parseRepoUrl(raw);
+  if(!parsed){ previewInfo.classList.add('show'); previewInfo.innerHTML = '<span class="warn">noto\'g\'ri url</span>'; return; }
+
+  previewBtn.disabled = true;
+  previewBtn.textContent = "tekshirilmoqda...";
+  previewInfo.classList.remove('show');
+
+  try{
+    let branch = branchOverride;
+    if(!branch){
+      const repoInfo = await ghFetch('https://api.github.com/repos/' + parsed.owner + '/' + parsed.repo, token);
+      branch = repoInfo.default_branch;
+    }
+
+    try{
+      const branches = await ghFetch('https://api.github.com/repos/' + parsed.owner + '/' + parsed.repo + '/branches?per_page=100', token);
+      const branchSelect = document.getElementById('branchInput');
+      const prevValue = branchOverride || branch;
+      branchSelect.innerHTML = '<option value="">auto branch (' + branch + ')</option>';
+      branches.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.name;
+        opt.textContent = b.name;
+        if(b.name === prevValue) opt.selected = true;
+        branchSelect.appendChild(opt);
+      });
+    }catch(e){}
+
+    const tree = await ghFetch('https://api.github.com/repos/' + parsed.owner + '/' + parsed.repo + '/git/trees/' + encodeURIComponent(branch) + '?recursive=1', token);
+
+    const excludeParts = getExcludeParts();
+    const allFiles = tree.tree.filter(item => item.type === 'blob');
+    const kept = allFiles.filter(f => !isExcluded(f.path, excludeParts));
+    const excludedCount = allFiles.length - kept.length;
+    const totalSize = kept.reduce((sum, f) => sum + (f.size || 0), 0);
+
+    let html = 'branch: <span class="num">' + branch + '</span><br>';
+    html += 'jami: <span class="num">' + allFiles.length + '</span> fayl';
+    if(excludedCount > 0) html += ', filtrdan keyin: <span class="num">' + kept.length + '</span> fayl (' + excludedCount + ' ta chiqarib tashlandi)';
+    html += '<br>taxminiy hajm: <span class="num">~' + formatSize(totalSize) + '</span> (siqilmagan holda)';
+    if(tree.truncated) html += '<br><span class="warn">ogohlantirish: repo katta, ro\'yxat kesilgan bo\'lishi mumkin</span>';
+
+    previewInfo.innerHTML = html;
+    previewInfo.classList.add('show');
+  }catch(e){
+    previewInfo.innerHTML = '<span class="warn">xato: ' + e.message + '</span>';
+    previewInfo.classList.add('show');
+  }finally{
+    previewBtn.disabled = false;
+    previewBtn.textContent = "oldindan ko'rish";
+  }
+}
+
 async function startDownload(){
   const raw = document.getElementById('urlInput').value;
   const branchOverride = document.getElementById('branchInput').value;
@@ -372,17 +579,10 @@ async function startDownload(){
     const tree = await ghFetch('https://api.github.com/repos/' + parsed.owner + '/' + parsed.repo + '/git/trees/' + encodeURIComponent(branch) + '?recursive=1', token);
     if(tree.truncated) log("ogohlantirish: repo katta, ba'zi fayllar tushib qolishi mumkin", 'err');
 
-    const excludeRaw = document.getElementById('excludeInput').value;
-    const excludeParts = excludeRaw.split(',').map(s => s.trim()).filter(Boolean);
-
-    function isExcluded(path){
-      const segments = path.split('/');
-      return excludeParts.some(pattern => segments.includes(pattern));
-    }
-
+    const excludeParts = getExcludeParts();
     const allFiles = tree.tree.filter(item => item.type === 'blob');
-    const excludedCount = allFiles.filter(f => isExcluded(f.path)).length;
-    const files = allFiles.filter(f => !isExcluded(f.path));
+    const excludedCount = allFiles.filter(f => isExcluded(f.path, excludeParts)).length;
+    const files = allFiles.filter(f => !isExcluded(f.path, excludeParts));
     log(allFiles.length + ' ta fayl topildi');
     if(excludedCount > 0) log(excludedCount + " ta fayl filtr bo'yicha chiqarib tashlandi");
     if(files.length === 0){ log("fayl yo'q", 'err'); btn.disabled = false; btn.textContent = 'yuklab olish'; return; }
@@ -391,25 +591,43 @@ async function startDownload(){
     const zip = new JSZip();
     let done = 0;
     const concurrency = 6;
+    const maxRetries = 3;
     let index = 0;
+
+    function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+
+    async function fetchFileOnce(file){
+      if(token){
+        const blobRes = await fetch('https://api.github.com/repos/' + parsed.owner + '/' + parsed.repo + '/git/blobs/' + file.sha, { headers: authHeaders(token) });
+        if(!blobRes.ok) throw new Error('http ' + blobRes.status);
+        const blobData = await blobRes.json();
+        return b64ToArrayBuffer(blobData.content);
+      } else {
+        const rawUrl = 'https://raw.githubusercontent.com/' + parsed.owner + '/' + parsed.repo + '/' + branch + '/' + file.path;
+        const res = await fetch(rawUrl);
+        if(!res.ok) throw new Error('http ' + res.status);
+        return await res.arrayBuffer();
+      }
+    }
 
     async function worker(){
       while(index < files.length){
         const file = files[index++];
-        try{
-          if(token){
-            const blobRes = await fetch('https://api.github.com/repos/' + parsed.owner + '/' + parsed.repo + '/git/blobs/' + file.sha, { headers: authHeaders(token) });
-            if(!blobRes.ok) throw new Error('http ' + blobRes.status);
-            const blobData = await blobRes.json();
-            zip.file(file.path, b64ToArrayBuffer(blobData.content));
-          } else {
-            const rawUrl = 'https://raw.githubusercontent.com/' + parsed.owner + '/' + parsed.repo + '/' + branch + '/' + file.path;
-            const res = await fetch(rawUrl);
-            if(!res.ok) throw new Error('http ' + res.status);
-            zip.file(file.path, await res.arrayBuffer());
+        let lastErr = null;
+        let ok = false;
+        for(let attempt = 0; attempt <= maxRetries; attempt++){
+          try{
+            const data = await fetchFileOnce(file);
+            zip.file(file.path, data);
+            ok = true;
+            break;
+          }catch(e){
+            lastErr = e;
+            if(attempt < maxRetries) await sleep(400 * (attempt + 1));
           }
-        }catch(e){
-          log(file.path + ' - skip (' + e.message + ')', 'err');
+        }
+        if(!ok){
+          log(file.path + ' - skip, ' + (maxRetries+1) + " urinishdan keyin (" + lastErr.message + ')', 'err');
         }
         done++;
         barFill.style.width = Math.round((done/files.length)*100) + '%';
@@ -427,6 +645,7 @@ async function startDownload(){
     dlName.textContent = zipFileName;
     dlSize.textContent = formatSize(blob.size);
     downloadCard.classList.add('show');
+    saveRecent(parsed.owner, parsed.repo, 'https://github.com/' + parsed.owner + '/' + parsed.repo);
 
     log('zip tayyor, pastdagi "yuklash" tugmasini bosing', 'ok');
     shareBtn.classList.add('show');
@@ -492,7 +711,8 @@ async function uploadForShare(){
       sizeBytes: lastZipMeta.sizeBytes,
       fileName: lastZipName,
       chunkCount: chunks.length,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      downloadCount: 0
     });
 
     const batchSize = 10;
@@ -556,6 +776,14 @@ async function downloadSharedZip(docId){
     dlName.textContent = lastZipName;
     dlSize.textContent = formatSize(blob.size);
     downloadCard.classList.add('show');
+
+    let newCount = (meta.downloadCount || 0) + 1;
+    try{
+      await docSnap.ref.update({ downloadCount: firebase.firestore.FieldValue.increment(1) });
+    }catch(e){
+      newCount = meta.downloadCount || 0;
+    }
+    log('bu havola ' + newCount + " marta ochilgan", 'ok');
 
     log('zip tayyor, pastdagi "yuklash" tugmasini bosing', 'ok');
   }catch(e){
