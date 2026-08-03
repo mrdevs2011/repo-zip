@@ -342,8 +342,11 @@
         <label>Branch</label>
         <select id="branchInput"><option value="">Avtomatik branch</option></select>
 
-        <label>Chiqarib tashlash<span class="hint"> — Tanlangan fayllar papkalar ZIP ga kiritilmaydi!</span></label>
-        <input type="text" id="excludeInput" value="node_modules, .git, dist, build, .next, __pycache__, vendor" />
+        <label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+          <input type="checkbox" id="excludeEnabled" style="width:auto;height:auto;" onchange="onExcludeToggle()" />
+          Chiqarib tashlashni yoqish<span class="hint"> — Tanlangan fayllar papkalar ZIP ga kiritilmaydi!</span>
+        </label>
+        <input type="text" id="excludeInput" value="node_modules, .git, dist, build, .next, __pycache__, vendor" disabled />
 
         <button id="previewBtn" class="btn" onclick="previewRepo()">Oldindan ko'rish</button>
         <div id="previewInfo"></div>
@@ -585,7 +588,24 @@ function b64ToArrayBuffer(base64){
   return bytes.buffer;
 }
 
+const EXCLUDE_ENABLED_KEY = 'repo_zip_exclude_enabled';
+
+function onExcludeToggle(){
+  const enabled = document.getElementById('excludeEnabled').checked;
+  document.getElementById('excludeInput').disabled = !enabled;
+  try{ localStorage.setItem(EXCLUDE_ENABLED_KEY, enabled ? '1' : '0'); }catch(e){}
+}
+
+(function initExcludeToggle(){
+  let enabled = false;
+  try{ enabled = localStorage.getItem(EXCLUDE_ENABLED_KEY) === '1'; }catch(e){ enabled = false; }
+  document.getElementById('excludeEnabled').checked = enabled;
+  document.getElementById('excludeInput').disabled = !enabled;
+})();
+
 function getExcludeParts(){
+  const enabled = document.getElementById('excludeEnabled').checked;
+  if(!enabled) return [];
   const excludeRaw = document.getElementById('excludeInput').value;
   return excludeRaw.split(',').map(s => s.trim()).filter(Boolean);
 }
@@ -754,7 +774,7 @@ async function startDownload(){
     downloadCard.classList.add('show');
     saveRecent(parsed.owner, parsed.repo, 'https://github.com/' + parsed.owner + '/' + parsed.repo);
 
-    log('zip tayyor, yuqoridagi "Yuklash" tugmasini bosing', 'ok');
+    log('zip tayyor, pastdagi "Yuklash" tugmasini bosing', 'ok');
     shareBtn.classList.add('show');
   }catch(e){
     log('xato: ' + e.message, 'err');
