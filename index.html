@@ -93,6 +93,49 @@
     font-size:13px;
   }
 
+  #downloadCard{
+    display:none;
+    align-items:center;
+    gap:12px;
+    margin-top:16px;
+    padding:12px;
+    background:#0d1117;
+    border:1px solid var(--border);
+    border-radius:10px;
+  }
+  #downloadCard.show{ display:flex; }
+  .dl-icon{
+    flex-shrink:0;
+    width:40px; height:40px;
+    border:1px solid var(--muted);
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:9px; font-weight:700;
+    color:var(--muted);
+  }
+  .dl-info{ flex:1; min-width:0; }
+  .dl-name{
+    font-size:12.5px;
+    color:var(--text);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .dl-size{
+    font-size:11px;
+    color:var(--muted);
+    margin-top:2px;
+  }
+  #dlBtn{
+    flex-shrink:0;
+    padding:9px 16px;
+    background:var(--accent);
+    color:#0a0e14;
+    border:none;
+    font-weight:600;
+    font-size:12px;
+  }
+
   #shareBtn{
     width:100%;
     margin-top:8px;
@@ -186,6 +229,15 @@
 
   <div class="bar" id="bar"><div class="bar-fill" id="barFill"></div></div>
 
+  <div id="downloadCard">
+    <div class="dl-icon">ZIP</div>
+    <div class="dl-info">
+      <div class="dl-name" id="dlName"></div>
+      <div class="dl-size" id="dlSize"></div>
+    </div>
+    <button id="dlBtn" onclick="triggerDownload()">yuklash</button>
+  </div>
+
   <button id="shareBtn" onclick="uploadForShare()">url olish</button>
   <div id="shareResult">
     <input type="text" id="shareUrlOutput" readonly />
@@ -218,6 +270,9 @@ const shareBtn = document.getElementById('shareBtn');
 const shareResult = document.getElementById('shareResult');
 const shareUrlOutput = document.getElementById('shareUrlOutput');
 const aiScriptBtn = document.getElementById('aiScriptBtn');
+const downloadCard = document.getElementById('downloadCard');
+const dlName = document.getElementById('dlName');
+const dlSize = document.getElementById('dlSize');
 let lastDocId = null;
 const tokenInput = document.getElementById('tokenInput');
 const saveTokenCheckbox = document.getElementById('saveTokenCheckbox');
@@ -276,6 +331,22 @@ async function ghFetch(url, token){
   return res.json();
 }
 
+function formatSize(bytes){
+  if(bytes < 1024) return bytes + ' B';
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/(1024*1024)).toFixed(1) + ' MB';
+}
+
+function triggerDownload(){
+  if(!lastZipBlob) return;
+  const dlUrl = URL.createObjectURL(lastZipBlob);
+  const a = document.createElement('a');
+  a.href = dlUrl; a.download = lastZipName;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(dlUrl);
+  log('yuklab olindi: ' + lastZipName, 'ok');
+}
+
 function b64ToArrayBuffer(base64){
   const binary = atob(base64.replace(/\n/g, ''));
   const bytes = new Uint8Array(binary.length);
@@ -293,6 +364,7 @@ async function startDownload(){
   shareBtn.classList.remove('show');
   shareResult.classList.remove('show');
   aiScriptBtn.classList.remove('show');
+  downloadCard.classList.remove('show');
   lastZipBlob = null;
 
   const parsed = parseRepoUrl(raw);
@@ -355,13 +427,11 @@ async function startDownload(){
     lastZipName = zipFileName;
     lastZipMeta = { owner: parsed.owner, repo: parsed.repo, branch: branch, fileCount: done, sizeBytes: blob.size };
 
-    const dlUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = dlUrl; a.download = zipFileName;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(dlUrl);
+    dlName.textContent = zipFileName;
+    dlSize.textContent = formatSize(blob.size);
+    downloadCard.classList.add('show');
 
-    log('yuklab olindi: ' + zipFileName, 'ok');
+    log('zip tayyor, pastdagi "yuklash" tugmasini bosing', 'ok');
     shareBtn.classList.add('show');
   }catch(e){
     log('xato: ' + e.message, 'err');
@@ -406,8 +476,10 @@ async function blobToBase64Chunks(blob){
 async function uploadForShare(){
   if(!lastZipBlob) return;
   shareBtn.disabled = true;
-  shareBtn.textContent = 'yuklanmoqda...';
+  shareBtn.textContent = 'yuklanmoqda... 0%';
   shareResult.classList.remove('show');
+  barEl.classList.add('show');
+  barFill.style.width = '0%';
 
   try{
     if(!auth.currentUser) await auth.signInAnonymously();
@@ -427,12 +499,18 @@ async function uploadForShare(){
     });
 
     const batchSize = 10;
+    let uploaded = 0;
     for(let i = 0; i < chunks.length; i += batchSize){
       const batch = db.batch();
-      chunks.slice(i, i + batchSize).forEach((chunkData, j) => {
+      const slice = chunks.slice(i, i + batchSize);
+      slice.forEach((chunkData, j) => {
         batch.set(docRef.collection('chunks').doc(String(i + j)), { data: chunkData });
       });
       await batch.commit();
+      uploaded += slice.length;
+      const pct = Math.round((uploaded / chunks.length) * 100);
+      barFill.style.width = pct + '%';
+      shareBtn.textContent = 'yuklanmoqda... ' + pct + '%';
     }
 
     const shareUrl = location.origin + location.pathname + '?zip=' + docRef.id;
@@ -523,13 +601,13 @@ async function downloadSharedZip(docId){
     }
 
     const blob = new Blob(buffers, { type: 'application/zip' });
-    const dlUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = dlUrl; a.download = meta.fileName || (meta.repo + '.zip');
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(dlUrl);
+    lastZipBlob = blob;
+    lastZipName = meta.fileName || (meta.repo + '.zip');
+    dlName.textContent = lastZipName;
+    dlSize.textContent = formatSize(blob.size);
+    downloadCard.classList.add('show');
 
-    log('yuklab olindi: ' + a.download, 'ok');
+    log('zip tayyor, pastdagi "yuklash" tugmasini bosing', 'ok');
   }catch(e){
     log('xato: ' + e.message, 'err');
   }
